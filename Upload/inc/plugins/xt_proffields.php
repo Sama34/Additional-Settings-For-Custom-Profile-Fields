@@ -292,8 +292,8 @@ function xt_proffields_rebuild(){
 
 function xt_proffields_cache(){
 	require_once MYBB_ROOT.'inc/xthreads/xt_phptpl_lib.php';
-	$fields = array('VALUE','RAWVALUE');
-	$fieldsinp = array('VALUE','RAWVALUE','INPUT');
+	$fields = array('VALUE' => null, 'RAWVALUE' => null);
+	$fieldsinp = array('VALUE' => null, 'RAWVALUE' => null, 'INPUT' => null);
 	$query = $GLOBALS['db']->simple_select('profilefields','*','',array('order_by'=>'disporder asc'));
 	$pfieldscache = array();
 	$evalcache = '';
