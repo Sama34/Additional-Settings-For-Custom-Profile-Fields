@@ -1,7 +1,6 @@
 <?php
 
 $l['xt_proffields_proffields'] = 'Profile Fields';
-$l['xt_proffields_error'] = 'The value entered for &quot;{1}&quot; is not a valid value.';
 $l['xt_proffields_error_js'] = 'The value is not valid';
 $l['xt_proffields_no_req'] = 'Additional Informations &ndash; Not Required';
 $l['xt_proffields_err_editable'] = 'You don\'t have permission to edit this profile field.';
@@ -26,7 +25,7 @@ $l['xt_proffields_regex_desc'] = 'Use regular expression for this field (will be
 $l['xt_proffields_fml'] = 'Formatting Map List';
 $l['xt_proffields_fml_desc'] = 'Leave it blank if we want to use the default output.';
 $l['xt_proffields_cinp'] = 'Custom Input';
-$l['xt_proffields_cinp_desc'] = 'Leave it blank if we want to use the default input.';
+$l['xt_proffields_cinp_desc'] = 'We can place the input field anywhere in our edit profile page template (usercp_profile) and/or member_register template. To do this, at least put <span style="font-family:courier">{INPUT}</span> element in this setting, then put <span style="font-family: courier">{$GLOBALS[\'xtpf_inp\'][\'fidX\']}</span> variable anywhere in the edit profile template (usercp_profile) and/or member_register template, where X is the profile field id. Please remember that when we put something to this setting, then the input fields won\'t be displayed in the default Custom Profile Fields inputs block. Leave it blank if we want to use the default input.';
 $l['xt_proffields_brv'] = 'Blank Replacement Value';
 $l['xt_proffields_brv_desc'] = 'Will be used as value if there is no value supplied for this field. We can use conditional structures in this setting.';
 $l['xt_proffields_df'] = 'Display Format';
