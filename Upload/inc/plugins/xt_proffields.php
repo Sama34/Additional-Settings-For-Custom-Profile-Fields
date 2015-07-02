@@ -49,33 +49,18 @@ function xt_proffields_activate(){
 	xt_proffields_deactivate();
 	update_xt_proffields();
 
-	// Add templates
-	$query = $db->simple_select('templates', 'title', 'title IN (\'xt_proffields_reg_fields\', \'xt_proffields_reg_fields_field\', \'xt_proffields_memberlist_search\') AND sid=\'-1\'');
-	$validtempl = array();
-	while($templtitle = $db->fetch_field($query, 'title'))
-	{
-		$validtempl[$templtitle] = 0;
-	}
+	global $PL;
+	$PL or require_once PLUGINLIBRARY;
 
-	if(!isset($validtempl['xt_proffields_reg_fields']))
-	{
-		$db->insert_query('templates',array(
-			'title'		=> 'xt_proffields_reg_fields',
-			'template'	=> $db->escape_string('<br />
+	$PL->templates('xtproffields', 'Additional Settings For Profile Fields', array(
+		'reg_fields'	=> '<br />
 	<fieldset class="trow2">
 		<legend><strong>{$lang->xt_proffields_no_req}</strong></legend>
 		<table cellspacing="0" cellpadding="{$theme[\'tablespace\']}">
 			{$xt_proffields_reg_fields_field}
 		</table>
-	</fieldset>'),
-			'sid'		=> -1
-		));
-	}
-	if(!isset($validtempl['xt_proffields_reg_fields_field']))
-	{
-		$db->insert_query('templates',array(
-			'title'		=> 'xt_proffields_reg_fields_field',
-			'template'	=> $db->escape_string('<tr>
+	</fieldset>',
+		'reg_fields_field'	=> '<tr>
 		<td>
 			{$ufid[\'name\']}
 			<br />
@@ -84,29 +69,16 @@ function xt_proffields_activate(){
 	</tr>
 	<tr>
 		<td>{$code}</td>
-	</tr>'),
-			'sid'		=> -1
-		));
-	}
-	if(!isset($validtempl['xt_proffields_memberlist_search']))
-	{
-		$db->insert_query('templates',array(
-			'title'		=> 'xt_proffields_memberlist_search',
-			'template'	=> $db->escape_string('<tr><td class="{$altbg}"><strong>{$profilefield[\'name\']}</strong></td><td class="{$altbg}">{$vars[\'INPUT\']}</td></tr>'),
-			'sid'		=> -1
-		));
-	}
+	</tr>',
+		'memberlist_search'	=> '<tr><td class="{$altbg}"><strong>{$profilefield[\'name\']}</strong></td><td class="{$altbg}">{$vars[\'INPUT\']}</td></tr>',
+		'usercp_profile_profilefields_radio'	=> '<input type="radio" class="radio" name="profile_fields[$field]" value="{$val}"{$checked} />
+<span class="smalltext">{$value}</span><br />',
+	));
 
-	// Delete all possible old settings
-	$xtpfsg = $db->fetch_field($db->simple_select('settinggroups','gid','name="xt_proffields"'),'gid');
-	if($xtpfsg){
-		$db->delete_query('settings','gid='.$xtpfsg);
-		$db->delete_query('settinggroups','gid='.$xtpfsg);
-		rebuild_settings();
-	}
+	$PL->settings_delete('xt_proffields');
 
 	require_once MYBB_ROOT.'/inc/adminfunctions_templates.php';
-	#find_replace_templatesets('member_register','#\{\$requiredfields\}#','{$requiredfields}{$xt_proffields_reg_fields}');
+	find_replace_templatesets('member_register','#\{\$requiredfields\}#','{$requiredfields}{$xt_proffields_reg_fields}');
 	find_replace_templatesets('memberlist_search','#'.preg_quote('<tr>
 	<td class="tcat" colspan="2"><strong>{$lang->search_options').'#','{$xt_proffields}<tr>
 	<td class="tcat" colspan="2"><strong>{$lang->search_options');
@@ -392,7 +364,7 @@ function xt_proffields_showthread(){
 function xt_proffields_showthread_postbit(){
 	xt_proffields_load($GLOBALS['post'],1);
 }
-$GLOBALS['db']->modify_column('asb_script_info', 'template_name', 'VARCHAR(500) NOT NULL');
+
 #$plugins->add_hook('member_register_start','xt_proffields_regstart');
 function xt_proffields_regstart(){
 	global $xtpfc;
@@ -405,7 +377,7 @@ function xt_proffields_regstart(){
 				$code = '';
 				$code = xt_proffields_inp($ufid,$user,$errors,$vars);
 				if(!$ufid['xt_proffields_cinp']){
-					eval('$xt_proffields_reg_fields_field .= "'.$templates->get('xt_proffields_reg_fields_field').'";');
+					eval('$xt_proffields_reg_fields_field .= "'.$templates->get('xtproffields_reg_fields_field').'";');
 				}else{
 					$xtpf_inp['fid'.$ufid['fid']] = xt_proffields_cinp($ufid,$vars);
 				}
@@ -413,7 +385,7 @@ function xt_proffields_regstart(){
 		}
 		if($xt_proffields_reg_fields_field){
 			if(!$lang->xt_proffields_no_req) $lang->load('xt_proffields');
-			eval('$xt_proffields_reg_fields = "'.$templates->get('xt_proffields_reg_fields').'";');
+			eval('$xt_proffields_reg_fields = "'.$templates->get('xtproffields_reg_fields').'";');
 		}
 	}
 }
@@ -582,10 +554,8 @@ function xt_proffields_inp(&$pa,&$user,&$errors,&$vars=array()){
 					}
 					if($val == $userfield) $checked = ' checked="checked"';
 					$fieldkey = $key+1;
-					/*$each_code .= '<input id="'.$field.'_'.$fieldkey.'" /><label for="'.$field.'_'.$fieldkey.'"><span class="smalltext">'.$value.'</span></label>';
-					isset($templates->cache['usercp_profile_profilefields_radio_xt']) or $templates->cache['usercp_profile_profilefields_radio_xt'] = '<input type="radio" class="radio" name="profile_fields[$field]" value="{$val}"{$checked} />
-<span class="smalltext">{$value}</span><br />';*/
-					eval('$each_code .= "'.$templates->get('usercp_profile_profilefields_radio_xt').'";');
+					/*$each_code .= '<input id="'.$field.'_'.$fieldkey.'" /><label for="'.$field.'_'.$fieldkey.'"><span class="smalltext">'.$value.'</span></label>';*/
+					eval('$each_code .= "'.$templates->get('xtproffields_usercp_profile_profilefields_radio').'";');
 					$vars['VALUE$'][$fieldkey] = '<table border="0"><tr><td style="vertical-align: middle"><input id="'.$field.'_'.$fieldkey.'" type="radio" class="radio" name="profile_fields['.$field.']" value="'.$val.'"'.$checked.' /></td><td style="vertical-align: middle"><label for="'.$field.'_'.$fieldkey.'">'.$value.'</label></td></tr></table>';
 				}
 				$vars['INPUT'] = $code = $each_code;
@@ -771,7 +741,7 @@ function xt_proffields_memberlist_search()
 
 		xt_proffields_inp($profilefield, $null, $null, $vars); // $null can be $mybb->user
 
-		eval('$xt_proffields .= "'.$templates->get('xt_proffields_memberlist_search').'";');
+		eval('$xt_proffields .= "'.$templates->get('xtproffields_memberlist_search').'";');
         $altbg = alt_trow();
 	}
 }
