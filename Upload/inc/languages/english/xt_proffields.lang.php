@@ -1,5 +1,7 @@
 <?php
 
+$l['xt_proffields'] = 'Additional Settings For Profile Fields';
+
 $l['xt_proffields_proffields'] = 'Profile Fields';
 $l['xt_proffields_error_js'] = 'The value is not valid';
 $l['xt_proffields_no_req'] = 'Additional Informations &ndash; Not Required';
@@ -34,4 +36,3 @@ $l['xt_proffields_viewable'] = 'Viewable By Usergroup';
 $l['xt_proffields_viewable_desc'] = 'Do not select any usergroup if this field is viewable for all uergroups. Will be applied for custom blocks only.';
 $l['xt_proffields_editable'] = 'Editable By Usergroup';
 $l['xt_proffields_editable_desc'] = 'Do not select any usergroup if this field is editable by all uergroups. Will be applied for editable and non required fields only.';
-?>

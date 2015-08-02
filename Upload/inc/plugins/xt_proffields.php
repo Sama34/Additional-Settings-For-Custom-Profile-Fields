@@ -199,7 +199,7 @@ function xt_proffields_form(){
 	global $form_container, $lang;
 	if($form_container->_title == $lang->add_new_profile_field || $form_container->_title == $lang->edit_profile_field){
 		global $mybb, $form;
-		$lang->load('xt_proffields');
+		isset($lang->xt_proffields) or $lang->load('xt_proffields', true, false);
 		foreach(xt_proffields_insfields() as $desc){
 			$desc_desc = $desc['field'].'_desc';
 			switch ($desc['inp']){
@@ -384,7 +384,7 @@ function xt_proffields_regstart(){
 			}
 		}
 		if($xt_proffields_reg_fields_field){
-			if(!$lang->xt_proffields_no_req) $lang->load('xt_proffields');
+			isset($lang->xt_proffields) or $lang->load('xt_proffields');
 			eval('$xt_proffields_reg_fields = "'.$templates->get('xtproffields_reg_fields').'";');
 		}
 	}
@@ -396,7 +396,7 @@ function xt_proffields_regend(){
 	if(!$xtpfc) $xtpfc = $GLOBALS['cache']->read('xt_proffields');
 	if($xtpfc){
 		global $lang;
-		if(!$lang->xt_proffields_error_js) $lang->load('xt_proffields');
+		isset($lang->xt_proffields) or $lang->load('xt_proffields');
 		$xt_proffields_validator = '';
 		foreach($xtpfc as $uf => $ufid){
 			if($ufid['required'] && $ufid['regex']){
@@ -675,7 +675,7 @@ function xt_proffields_disp(&$pa,&$v){
 				break;
 				case 'select':
 				case 'radio':
-					if($pa['xt_proffields_fml'][$v]){
+					if(isset($pa['xt_proffields_fml'][$v]) && $pa['xt_proffields_fml'][$v]){
 						$templates->cache['tmp_profilefield_'.$pa['fid']] = trim($pa['xt_proffields_fml'][$v]);
 						eval('$value = "'.$templates->get('tmp_profilefield_'.$pa['fid'], 1, 0).'";');
 						if($value === '' && $pa['xt_proffields_brv']) $value = $evalfunc('xt_proffields_brv');
