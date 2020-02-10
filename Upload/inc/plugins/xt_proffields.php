@@ -47,7 +47,7 @@ function xt_proffields_insfields(){
 function xt_proffields_activate(){
 	global $db;
 	xt_proffields_deactivate();
-	update_xt_proffields();
+	xt_proffields_admin_proffields_update_cache();
 
 	global $PL;
 	$PL or require_once PLUGINLIBRARY;
@@ -71,8 +71,10 @@ function xt_proffields_activate(){
 		<td>{$code}</td>
 	</tr>',
 		'memberlist_search'	=> '<tr><td class="{$altbg}"><strong>{$profilefield[\'name\']}</strong></td><td class="{$altbg}">{$vars[\'INPUT\']}</td></tr>',
-		'usercp_profile_profilefields_radio'	=> '<input type="radio" class="radio" name="profile_fields[$field]" value="{$val}"{$checked} />
-<span class="smalltext">{$value}</span><br />',
+'usercp_profile_profilefields_radio'	=> '<input type="radio" class="radio" name="profile_fields[{$field}]" value="{$val}" id="{$field}_{$fieldkey}"{$checked} />
+<label class="smalltext" for="{$field}_{$fieldkey}">{$value}</label><br />',
+'usercp_profile_profilefields_checkbox'	=> '<input type="checkbox" class="checkbox" name="profile_fields[{$field}][]" value="{$val}" id="{$field}_{$fieldkey}"{$checked}/>
+<label class="smalltext" for="{$field}_{$fieldkey}">{$value}</label><br />',
 	));
 
 	$PL->settings_delete('xt_proffields');
@@ -85,9 +87,12 @@ function xt_proffields_activate(){
 }
 
 function xt_proffields_deactivate(){
+	global $cache, $db;
 	require_once MYBB_ROOT.'/inc/adminfunctions_templates.php';
 	find_replace_templatesets('member_register','#\{\$xt_proffields_reg_fields\}#','',0);
 	find_replace_templatesets('memberlist_search','#\{\$xt_proffields\}#','',0);
+	$cache->delete('xt_proffields');
+	$db->delete_query('datacache','title="xt_proffields"');
 }
 
 function xt_proffields_install()
@@ -136,9 +141,6 @@ function xt_proffields_uninstall()
 		}
 	}
 
-	$cache->delete('xt_proffields');
-
-	$db->delete_query('datacache','title="xt_proffields"');
 	if(file_exists(MYBB_ROOT.'cache/xt_proffields_evalcache.php')) @unlink(MYBB_ROOT.'cache/xt_proffields_evalcache.php');
 	$db->delete_query('templates','title IN("xt_proffields_reg_fields","xt_proffields_reg_fields_field")');
 }
@@ -164,30 +166,34 @@ function xt_proffields_field(){
 $plugins->add_hook('admin_config_profile_fields_add_commit','xt_proffields_admin_proffields_add');
 function xt_proffields_admin_proffields_add(){
 	xt_proffields_submit($GLOBALS['new_profile_field']);
-	$GLOBALS['db']->update_query("profilefields", $GLOBALS['new_profile_field'], "fid = '".(int)$GLOBALS['fid']."'");
-	update_xt_proffields();
+	control_object($GLOBALS['cache'], '
+		function update($name, $contents) {
+			if($name == "profilefields")
+			{
+				update_xt_proffields($contents);
+			}
+			return parent::update($name, $contents);
+		}
+	');
 }
 
 $plugins->add_hook('admin_config_profile_fields_edit_commit','xt_proffields_admin_proffields_edit');
 function xt_proffields_admin_proffields_edit(){
 	xt_proffields_submit($GLOBALS['updated_profile_field']);
 	control_object($GLOBALS['cache'], '
-		function update_profilefields(){
-			static $done = false;
-			if(!$done)
+		function update($name, $contents) {
+			if($name == "profilefields")
 			{
-				$done = true;
-				update_xt_proffields();
+				update_xt_proffields($contents);
 			}
-			return parent::update_profilefields();
+			return parent::update($name, $contents);
 		}
 	');
 }
 
 function xt_proffields_submit(&$fields){
 	global $mybb, $db;
-	$textbased = in_array($mybb->input['fieldtype'],array('text','textarea'));
-	$fields['xt_proffields_badwords'] = $textbased ? intval($mybb->input['xt_proffields_badwords']) : 0;
+	$fields['xt_proffields_badwords'] = intval($mybb->input['xt_proffields_badwords']);
 	foreach(xt_proffields_insfields() as $xtpffield){
 		if($xtpffield['inp'] == 'textarea'){
 			$fields[$xtpffield['field']] = $db->escape_string($mybb->input[$xtpffield['field']]);
@@ -199,22 +205,23 @@ function xt_proffields_form(){
 	global $form_container, $lang;
 	if($form_container->_title == $lang->add_new_profile_field || $form_container->_title == $lang->edit_profile_field){
 		global $mybb, $form;
-		isset($lang->xt_proffields) or $lang->load('xt_proffields', true, false);
+		$lang->load('xt_proffields');
 		foreach(xt_proffields_insfields() as $desc){
+			//$form_container->output_row($lang->title." <em>*</em>", "", $form->generate_text_box('title', $mybb->input['title'], array('id' => 'title')), 'title');
 			$desc_desc = $desc['field'].'_desc';
 			switch ($desc['inp']){
 				case 'yn':
-					$form_container->output_row($lang->$desc['field'],$lang->$desc_desc,$form->generate_yes_no_radio($desc['field'],$mybb->input[$desc['field']],true,array('id'=>$desc['field'].'_yes','class'=>$desc['field']),array('id'=>$desc['field'].'_no','class'=>$desc['field'])),'row_'.$desc['field'],array(),array('id'=>'row_'.$desc['field']));
+					$form_container->output_row($lang->{$desc['field']},$lang->$desc_desc,$form->generate_yes_no_radio($desc['field'],$mybb->input[$desc['field']],true,array('id'=>$desc['field'].'_yes','class'=>$desc['field']),array('id'=>$desc['field'].'_no','class'=>$desc['field'])),'row_'.$desc['field'],array(),array('id'=>'row_'.$desc['field']));
 				break;
 				case 'text':
-					$form_container->output_row($lang->$desc['field'],$lang->$desc_desc,$form->generate_text_box($desc['field'],$mybb->input[$desc['field']],array('id'=>$desc['field'])),$desc['field'],array(),array('id'=>'row_'.$desc['field']));
+					$form_container->output_row($lang->{$desc['field']},$lang->$desc_desc,$form->generate_text_box($desc['field'],$mybb->input[$desc['field']],array('id'=>$desc['field'])),$desc['field'],array(),array('id'=>'row_'.$desc['field']));
 				break;
 				case 'textarea':
-					$form_container->output_row($lang->$desc['field'],$lang->$desc_desc,$form->generate_text_area($desc['field'],$mybb->input[$desc['field']],array('id'=>$desc['field'])),$desc['field'],array(),array('id'=>'row_'.$desc['field']));
+					$form_container->output_row($lang->{$desc['field']},$lang->$desc_desc,$form->generate_text_area($desc['field'],$mybb->input[$desc['field']],array('id'=>$desc['field'])),$desc['field'],array(),array('id'=>'row_'.$desc['field']));
 				break;
 				case 'ug':
 					if($mybb->request_method != 'post') $mybb->input[$desc['field']] = explode(',',$mybb->input[$desc['field']]);
-					$form_container->output_row($lang->$desc['field'],$lang->$desc_desc,$form->generate_group_select($desc['field'].'[]',$mybb->input[$desc['field']],array('multiple'=>true,'size'=>5)));
+					$form_container->output_row($lang->{$desc['field']},$lang->$desc_desc,$form->generate_group_select($desc['field'].'[]',$mybb->input[$desc['field']],array('multiple'=>true,'size'=>5)));
 				break;
 			}
 		}
@@ -227,18 +234,33 @@ function xt_proffields_form(){
 	}
 }
 
-$plugins->add_hook('admin_config_profile_fields_delete_commit','update_xt_proffields');
+$plugins->add_hook('admin_config_profile_fields_delete_commit','xt_proffields_admin_proffields_update_cache');
+function xt_proffields_admin_proffields_update_cache(){
+	global $cache;
 
-function update_xt_proffields(){
+	control_object($cache, '
+		function update($name, $contents) {
+			if($name == "profilefields")
+			{
+				update_xt_proffields($contents);
+			}
+			return parent::update($name, $contents);
+		}
+	');
+
+	$cache->update_profilefields();
+}
+
+function update_xt_proffields(&$profilefields){
 	require_once MYBB_ROOT.'inc/xthreads/xt_phptpl_lib.php';
 	$fields = array('VALUE' => null, 'RAWVALUE' => null);
 	$fieldsinp = array('VALUE' => null, 'RAWVALUE' => null, 'INPUT' => null);
-	$query = $GLOBALS['db']->simple_select('profilefields','*','',array('order_by'=>'disporder asc'));
 	$pfieldscache = array();
 	$evalcache = '';
-	$sntz_fields = array('allowhtml','allowmycode','allowimgcode','allowvideocode','allowsmilies','xt_proffields_badwords');
-	$isset_fields = array('length','maxlength','required','editable','profile','postbit','postnum','registration','regex');
-	while($pfields = $GLOBALS['db']->fetch_array($query)){
+	/*$query = $GLOBALS['db']->simple_select('profilefields','*','',array('order_by'=>'disporder asc'));
+	while($pfields = $GLOBALS['db']->fetch_array($query)){*/
+	foreach($profilefields as &$pfields){
+		$pfields['xt_proffields_badwords'] = (int)$pfields['xt_proffields_badwords'];
 		$evalcache .= '
 function xt_proffields_fid'.$pfields['fid'].'($field,$vars=array()){
 	switch($field){';
@@ -280,19 +302,11 @@ function xt_proffields_fid'.$pfields['fid'].'($field,$vars=array()){
 				$pfields['xt_proffields_fml'] = $options_array;
 			}
 		}
-		$sntzsep = $pfields['xt_proffields_snt'] = '';
-		foreach($sntz_fields as $sntz){
-			$pfields['xt_proffields_snt'] .= $sntzsep.$pfields[$sntz];
-			$sntzsep = '|';
-			unset($pfields[$sntz]);
-		}
-		foreach($isset_fields as $isset){
-			if(empty($pfields[$isset])) unset($pfields[$isset]);
-		}
 		$pfieldscache[$pfields['fid']] = $pfields;
 	}
+	/*
 	$GLOBALS['cache']->update('xt_proffields',$pfieldscache);
-	$GLOBALS['cache']->update_profilefields();
+	$GLOBALS['cache']->update_profilefields();*/
 	$fp = fopen(MYBB_ROOT.'cache/xt_proffields_evalcache.php','w');
 	fwrite($fp, '<?php
 /***
@@ -321,7 +335,7 @@ function xt_proffields_profile(){
 	global $userfields,$mybb;
 	xt_proffields_load($userfields);
 	global $xtpfc;
-	if(!$xtpfc) $xtpfc = $GLOBALS['cache']->read('xt_proffields');
+	if(!$xtpfc) $xtpfc = $GLOBALS['cache']->read('profilefields');
 	if($xtpfc){
 		global $templates,$memprofile,$theme,$lang,$profilefields;
 		$customfields = $profilefields = '';
@@ -331,7 +345,7 @@ function xt_proffields_profile(){
 				$field = 'fid'.$customfield['fid'];
 				$customfieldval = xt_proffields_disp($customfield, $userfields[$field]);
 				$customfield['name'] = htmlspecialchars_uni($customfield['name']);
-				if(is_member($customfield['editableby'], $memprofile) && $customfieldval)
+				if(is_member((string)$customfield['editableby'], array('usergroup' => $memprofile['usergroup'], 'additionalgroups' => is_array($memprofile['additionalgroups']) ? implode($memprofile['additionalgroups'], ',') : $memprofile['additionalgroups'])) && $customfieldval)
 				{
 					eval('$customfields .= "'.$templates->get('member_profile_customfields_field').'";');
 				}
@@ -347,7 +361,7 @@ function xt_proffields_memberlist(&$user){
 	xt_proffields_load($user);
 }
 
-$plugins->add_hook('showthread_start','xt_proffields_showthread');
+/*$plugins->add_hook('showthread_start','xt_proffields_showthread');
 $plugins->add_hook('newreply_start','xt_proffields_showthread');
 $plugins->add_hook('newreply_do_newreply_end','xt_proffields_showthread');
 function xt_proffields_showthread(){
@@ -363,12 +377,13 @@ function xt_proffields_showthread(){
 
 function xt_proffields_showthread_postbit(){
 	xt_proffields_load($GLOBALS['post'],1);
-}
+	_dump($GLOBALS['post']['profilefield']);
+}*/
 
 #$plugins->add_hook('member_register_start','xt_proffields_regstart');
 function xt_proffields_regstart(){
 	global $xtpfc;
-	if(!$xtpfc) $xtpfc = $GLOBALS['cache']->read('xt_proffields');
+	if(!$xtpfc) $xtpfc = $GLOBALS['cache']->read('profilefields');
 	if($xtpfc){
 		global $templates,$mybb,$xt_proffields_reg_fields,$theme,$lang,$errors,$xtpf_inp,$xtpf_data;
 		$xt_proffields_reg_fields_field = '';
@@ -384,7 +399,7 @@ function xt_proffields_regstart(){
 			}
 		}
 		if($xt_proffields_reg_fields_field){
-			isset($lang->xt_proffields) or $lang->load('xt_proffields');
+			if(!$lang->xt_proffields_no_req) $lang->load('xt_proffields');
 			eval('$xt_proffields_reg_fields = "'.$templates->get('xtproffields_reg_fields').'";');
 		}
 	}
@@ -393,10 +408,10 @@ function xt_proffields_regstart(){
 $plugins->add_hook('member_register_end','xt_proffields_regend');
 function xt_proffields_regend(){
 	global $xtpfc;
-	if(!$xtpfc) $xtpfc = $GLOBALS['cache']->read('xt_proffields');
+	if(!$xtpfc) $xtpfc = $GLOBALS['cache']->read('profilefields');
 	if($xtpfc){
 		global $lang;
-		isset($lang->xt_proffields) or $lang->load('xt_proffields');
+		if(!$lang->xt_proffields_error_js) $lang->load('xt_proffields');
 		$xt_proffields_validator = '';
 		foreach($xtpfc as $uf => $ufid){
 			if($ufid['required'] && $ufid['regex']){
@@ -440,16 +455,17 @@ function xt_proffields_regend(){
 }
 
 $plugins->add_hook('usercp_profile_end','xt_proffields_ucpend');
+$plugins->add_hook('modcp_editprofile_end','xt_proffields_ucpend');
 function xt_proffields_ucpend(){
 	global $xtpfc;
-	if(!$xtpfc) $xtpfc = $GLOBALS['cache']->read('xt_proffields');
+	if(!$xtpfc) $xtpfc = $GLOBALS['cache']->read('profilefields');
 	if($xtpfc){
 		global $templates,$mybb,$requiredfields,$customfields,$lang,$theme,$user,$errors,$xtpf_inp,$xtpf_data;
 		$altbg = 'trow1';
 		$xtpf_inp = array();
 		$requiredfields = $customfields = '';
 		foreach($xtpfc as $uf => $profilefield){
-			if($profilefield['editable'] == 1){
+			if(!empty($profilefield['editableby'])){
 				$code = '';
 				if(!is_member($profilefield['editableby']) || ($profilefield['postnum'] && $profilefield['postnum'] > $user['postnum']))
 				{
@@ -457,6 +473,7 @@ function xt_proffields_ucpend(){
 				}
 
 				$code = xt_proffields_inp($profilefield,$user,$errors,$vars);
+
 				if(!$profilefield['xt_proffields_cinp']){
 					if($profilefield['required'])
 					{
@@ -468,6 +485,7 @@ function xt_proffields_ucpend(){
 					}
 				}else{
 					$xtpf_inp['fid'.$profilefield['fid']] = xt_proffields_cinp($profilefield,$vars);
+					//$customfields .= $xtpf_inp['fid'.$profilefield['fid']];
 				}
 
 				$altbg = alt_trow();
@@ -527,9 +545,9 @@ function xt_proffields_inp(&$pa,&$user,&$errors,&$vars=array()){
 					$value = $sel = '';
 					$val = trim($val);
 					$val = str_replace("\n","\\n",$val);
-					if($pa['xt_proffields_fml'][$val]){
+					if(!empty($pa['xt_proffields_fml'][$val])){
 						$templates->cache['tmp_profilefield_'.$pa['fid']] = $pa['xt_proffields_fml'][$val];
-						eval('$value = "'.$templates->get('tmp_profilefield_'.$pa['fid']).'";');
+						eval('$value = "'.$templates->get('tmp_profilefield_'.$pa['fid'], 1, 0).'";');
 					}else{
 						$value = $val;
 					}
@@ -546,17 +564,17 @@ function xt_proffields_inp(&$pa,&$user,&$errors,&$vars=array()){
 				$vars['VALUE$'] = array();
 				foreach($expoptions as $key => $val){
 					$checked = $value = $fieldkey = '';
-					if($pa['xt_proffields_fml'][$val]){
+					if(!empty($pa['xt_proffields_fml'][$val])){
 						$templates->cache['tmp_profilefield_'.$pa['fid']] = $pa['xt_proffields_fml'][$val];
-						eval('$value = "'.$templates->get('tmp_profilefield_'.$pa['fid']).'";');
+						eval('$value = "'.$templates->get('tmp_profilefield_'.$pa['fid'], 1, 0).'";');
 					}else{
 						$value = $val;
 					}
 					if($val == $userfield) $checked = ' checked="checked"';
 					$fieldkey = $key+1;
-					/*$each_code .= '<input id="'.$field.'_'.$fieldkey.'" /><label for="'.$field.'_'.$fieldkey.'"><span class="smalltext">'.$value.'</span></label>';*/
-					eval('$each_code .= "'.$templates->get('xtproffields_usercp_profile_profilefields_radio').'";');
-					$vars['VALUE$'][$fieldkey] = '<table border="0"><tr><td style="vertical-align: middle"><input id="'.$field.'_'.$fieldkey.'" type="radio" class="radio" name="profile_fields['.$field.']" value="'.$val.'"'.$checked.' /></td><td style="vertical-align: middle"><label for="'.$field.'_'.$fieldkey.'">'.$value.'</label></td></tr></table>';
+					eval('$single_code = "'.$templates->get('xtproffields_usercp_profile_profilefields_radio').'";');
+					$each_code .= $single_code;
+					$vars['VALUE$'][$fieldkey] = $single_code;
 				}
 				$vars['INPUT'] = $code = $each_code;
 			}
@@ -579,14 +597,15 @@ function xt_proffields_inp(&$pa,&$user,&$errors,&$vars=array()){
 					$checked = $value = $fieldkey = '';
 					if($pa['xt_proffields_fml'][$val]){
 						$templates->cache['tmp_profilefield_'.$pa['fid']] = $pa['xt_proffields_fml'][$val];
-						eval('$value = "'.$templates->get('tmp_profilefield_'.$pa['fid']).'";');
+						eval('$value = "'.$templates->get('tmp_profilefield_'.$pa['fid'], 1, 0).'";');
 					}else{
 						$value = $val;
 					}
 					if($val == $seloptions[$val]) $checked = ' checked="checked"';
 					$fieldkey = $key+1;
-					$each_code .= '<table border="0"><tr><td style="vertical-align: middle"><input id="'.$field.'_'.$fieldkey.'" type="checkbox" class="checkbox" name="profile_fields['.$field.'][]" value="'.$val.'"'.$checked.' /></td><td style="vertical-align: middle"><label for="'.$field.'_'.$fieldkey.'">'.$value.'</label></td></tr></table>';
-					$vars['VALUE$'][$fieldkey] = '<table border="0"><tr><td style="vertical-align: middle"><input id="'.$field.'_'.$fieldkey.'" type="checkbox" class="checkbox" name="profile_fields['.$field.'][]" value="'.$val.'"'.$checked.' /></td><td style="vertical-align: middle"><label for="'.$field.'_'.$fieldkey.'">'.$value.'</label></td></tr></table>';
+					eval('$single_code = "'.$templates->get('xtproffields_usercp_profile_profilefields_checkbox').'";');
+					$each_code .= $single_code;
+					$vars['VALUE$'][$fieldkey] = $single_code;
 				}
 				$vars['INPUT'] = $code = $each_code;
 			}
@@ -622,14 +641,14 @@ function xt_proffields_parse(&$pa,&$v){
 		require_once MYBB_ROOT.'inc/class_parser.php';
 		$parser = new postParser;
 	}
-	$sntz = explode('|',$pa['xt_proffields_snt']);
+
 	$parser_options = array(
-		'allow_html' => $sntz[0],
-		'allow_mycode' => $sntz[1],
-		'allow_imgcode' => $sntz[2],
-		'allow_videocode' => $sntz[3],
-		'allow_smilies' => $sntz[4],
-		'filter_badwords' => $sntz[5]
+		'allow_html' => (int)$pa['allowhtml'],
+		'allow_mycode' => (int)$pa['allowmycode'],
+		'allow_imgcode' => (int)$pa['allowimgcode'],
+		'allow_videocode' => (int)$pa['allowvideocode'],
+		'allow_smilies' => (int)$pa['allowsmilies'],
+		'filter_badwords' => (int)$pa['xt_proffields_badwords'],
 	);
 
 	return $parser->parse_message($v,$parser_options);
@@ -659,13 +678,14 @@ function xt_proffields_disp(&$pa,&$v){
 					}
 				break;
 				case 'checkbox':
+				// checkboxes don't want to display in profiles for some reason... neither do multiselect text fields
 					$values = explode("\n",$v);
 					$vars['VALUE$'] = array();
 					foreach($values as $key => $val){
 						$value = '';
 						if($pa['xt_proffields_fml'][$val]){
 							$templates->cache['tmp_profilefield_'.$pa['fid']] = $pa['xt_proffields_fml'][$val];
-							eval('$value = "'.$templates->get('tmp_profilefield_'.$pa['fid']).'";');
+							eval('$value = "'.$templates->get('tmp_profilefield_'.$pa['fid'], 1, 0).'";');
 						}else{
 							$value = $val;
 						}
@@ -675,7 +695,7 @@ function xt_proffields_disp(&$pa,&$v){
 				break;
 				case 'select':
 				case 'radio':
-					if(isset($pa['xt_proffields_fml'][$v]) && $pa['xt_proffields_fml'][$v]){
+					if(!empty($pa['xt_proffields_fml'][$v])){
 						$templates->cache['tmp_profilefield_'.$pa['fid']] = trim($pa['xt_proffields_fml'][$v]);
 						eval('$value = "'.$templates->get('tmp_profilefield_'.$pa['fid'], 1, 0).'";');
 						if($value === '' && $pa['xt_proffields_brv']) $value = $evalfunc('xt_proffields_brv');
@@ -694,9 +714,10 @@ function xt_proffields_disp(&$pa,&$v){
 	}
 }
 
+
 function xt_proffields_load(&$ref,$html=0){
 	global $xtpf,$xtpfc;
-	if(!$xtpfc) $xtpfc = $GLOBALS['cache']->read('xt_proffields');
+	if(!$xtpfc) $xtpfc = $GLOBALS['cache']->read('profilefields');
 	require_once MYBB_ROOT.'cache/xt_proffields_evalcache.php';
 	$xtpf = $ref;
 	if($xtpf){
@@ -707,6 +728,53 @@ function xt_proffields_load(&$ref,$html=0){
 				$xtpf[$uf] = xt_proffields_disp($xtpfc[$ufid],$val);
 			}
 		}
+	}
+}
+
+$plugins->add_hook('postbit', 'xt_proffields_postbit', -10);
+$plugins->add_hook('postbit_prev', 'xt_proffields_postbit', -10);
+$plugins->add_hook('postbit_pm', 'xt_proffields_postbit', -10);
+$plugins->add_hook('postbit_announcement', 'xt_proffields_postbit', -10);
+
+function xt_proffields_postbit(&$post)
+{
+	if(!$post['user_details'] || !$post['profilefield'])
+	{
+		return;
+	}
+
+	global $xtpf, $xtpfc, $templates, $cache, $lang;
+
+	if(!$xtpfc)
+	{
+		$xtpfc = $cache->read('profilefields');
+	}
+
+	require_once MYBB_ROOT.'cache/xt_proffields_evalcache.php';
+
+	if(is_array($xtpfc))
+	{
+		$post['profilefield'] = '';
+
+		foreach($xtpfc as $field)
+		{
+			$fieldfid = "fid{$field['fid']}";
+
+			if(empty($post[$fieldfid]) || !$field['postbit'])
+			{
+				continue;
+			}
+
+			$xtpf[$fieldfid] = $xtpf[$fieldfid];
+			$val = $html ? htmlspecialchars_decode($post[$fieldfid]) : $post[$fieldfid];
+
+			$post['fieldname'] = htmlspecialchars_uni($field['name']);
+			$xtpf[$fieldfid] = $post['fieldvalue'] = xt_proffields_disp($field,$val);
+
+			eval("\$post['profilefield'] .= \"".$templates->get("postbit_profilefield")."\";");
+		}
+
+		eval("\$post['user_details'] = \"".$templates->get("postbit_author_user")."\";");
 	}
 }
 
@@ -728,13 +796,13 @@ function xt_proffields_memberlist_search()
 {
 	global $cache, $xt_proffields, $templates;
 
-	$profilefields = $cache->read('xt_proffields');
+	$profilefields = $cache->read('profilefields');
 	$xt_proffields = '';
 	$altbg = 'trow2';
 
 	foreach($profilefields as $fid => $profilefield)
 	{
-		if($profilefield['type'] == 'checkbox' || $profilefield['type'] == 'multiselect' || $profilefield['type'] == 'textarea' || !$profilefield['editable'] || !$profilefield['profile'] || !is_member($profilefield['viewableby']))
+		if($profilefield['type'] == 'checkbox' || $profilefield['type'] == 'multiselect' || $profilefield['type'] == 'textarea' || !$profilefield['editableby'] || !$profilefield['profile'] || !is_member($profilefield['viewableby']))
 		{
 			continue;
 		}
