@@ -12,6 +12,8 @@
 
 if(!defined('IN_MYBB')) die();
 
+define('MULTIPLE_VALUE_DELIMITER', ', ');// Comma should be a setting "Multiple Value Delimiter" as in xthreads
+
 function xt_proffields_info(){
 	return array(
 		'name'			=> 'Additional Settings For Profile Fields',
@@ -40,7 +42,8 @@ function xt_proffields_insfields(){
 		2=>array('field'=>'xt_proffields_cinp','def'=>'text NOT NULL','type'=>'text','inp'=>'textarea'),
 		3=>array('field'=>'xt_proffields_fml','def'=>'text NOT NULL','type'=>'text','inp'=>'textarea'),
 		4=>array('field'=>'xt_proffields_brv','def'=>'text NOT NULL','type'=>'text','inp'=>'textarea'),
-		5=>array('field'=>'xt_proffields_df','def'=>'text NOT NULL','type'=>'text','inp'=>'textarea')
+		5=>array('field'=>'xt_proffields_df','def'=>'text NOT NULL','type'=>'text','inp'=>'textarea'),
+		6=>array('field'=>'xt_proffields_mvd','def'=>'varchar(50) NOT NULL DEFAULT ", "','type'=>'text','inp'=>'text')
 	);
 }
 
@@ -84,6 +87,9 @@ function xt_proffields_activate(){
 	find_replace_templatesets('memberlist_search','#'.preg_quote('<tr>
 	<td class="tcat" colspan="2"><strong>{$lang->search_options').'#','{$xt_proffields}<tr>
 	<td class="tcat" colspan="2"><strong>{$lang->search_options');
+
+	// Update
+	xt_proffields_install();
 }
 
 function xt_proffields_deactivate(){
@@ -97,7 +103,7 @@ function xt_proffields_deactivate(){
 
 function xt_proffields_install()
 {
-	global $db;
+	global $db, $cache;
 
 	$fields = xt_proffields_insfields();
 	foreach($fields as $desc)
@@ -106,7 +112,13 @@ function xt_proffields_install()
 		{
 			$db->add_column('profilefields', $desc['field'], $desc['def']);
 		}
+		else
+		{
+			$db->modify_column('profilefields', $desc['field'], $desc['def']);
+		}
 	}
+
+	$cache->update_profilefields();
 }
 
 function xt_proffields_is_installed()
@@ -195,7 +207,7 @@ function xt_proffields_submit(&$fields){
 	global $mybb, $db;
 	$fields['xt_proffields_badwords'] = intval($mybb->input['xt_proffields_badwords']);
 	foreach(xt_proffields_insfields() as $xtpffield){
-		if($xtpffield['inp'] == 'textarea'){
+		if($xtpffield['inp'] == 'textarea' || $xtpffield['inp'] == 'text'){
 			$fields[$xtpffield['field']] = $db->escape_string($mybb->input[$xtpffield['field']]);
 		}
 	}
@@ -681,6 +693,7 @@ function xt_proffields_disp(&$pa,&$v){
 				// checkboxes don't want to display in profiles for some reason... neither do multiselect text fields
 					$values = explode("\n",$v);
 					$vars['VALUE$'] = array();
+					$vars['VALUE'] = $comma = '';
 					foreach($values as $key => $val){
 						$value = '';
 						if($pa['xt_proffields_fml'][$val]){
@@ -691,6 +704,8 @@ function xt_proffields_disp(&$pa,&$v){
 						}
 						$fieldkey = $key+1;
 						$vars['VALUE$'][$fieldkey] = $value;
+						$vars['VALUE'] .= $comma.$value;
+						$comma = (string)$pa['xt_proffields_mvd'];
 					}
 				break;
 				case 'select':
@@ -709,6 +724,8 @@ function xt_proffields_disp(&$pa,&$v){
 				break;
 			}
 			$msg = $evalfunc('xt_proffields_df',$vars);
+			//$pa['fid'] != 15 || _dump(1, $vars, $pa, $type);
+			//$pa['fid'] != 13 || _dump(1, $vars, $msg);
 		}
 		return $msg;
 	}
