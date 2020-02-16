@@ -12,8 +12,6 @@
 
 if(!defined('IN_MYBB')) die();
 
-define('MULTIPLE_VALUE_DELIMITER', ', ');// Comma should be a setting "Multiple Value Delimiter" as in xthreads
-
 function xt_proffields_info(){
 	return array(
 		'name'			=> 'Additional Settings For Profile Fields',
@@ -164,14 +162,15 @@ function xt_proffields_field(){
 	foreach(xt_proffields_insfields() as $desc){
 		switch ($desc['type']){
 			case 'tinyint':
-				$mybb->input[$desc['field']] = $mybb->input[$desc['field']] ? $mybb->input[$desc['field']] : 0;
+				$mybb->input[$desc['field']] = $mybb->input[$desc['field']] ? (int)$mybb->input[$desc['field']] : 0;
 			break;
 			case 'varchar':
 			case 'text':
-				$mybb->input[$desc['field']] = $mybb->input[$desc['field']] ? $mybb->input[$desc['field']] : '';
+				$mybb->input[$desc['field']] = $mybb->input[$desc['field']] ? (string)$mybb->input[$desc['field']] : '';
 			break;
 		}
 	}
+	$GLOBALS['plugins']->add_hook('admin_formcontainer_output_row','xt_proffields_form_badwords'); // for filtering badwords
 	$GLOBALS['plugins']->add_hook('admin_formcontainer_end','xt_proffields_form');
 }
 
@@ -207,8 +206,23 @@ function xt_proffields_submit(&$fields){
 	global $mybb, $db;
 	$fields['xt_proffields_badwords'] = intval($mybb->input['xt_proffields_badwords']);
 	foreach(xt_proffields_insfields() as $xtpffield){
-		if($xtpffield['inp'] == 'textarea' || $xtpffield['inp'] == 'text'){
-			$fields[$xtpffield['field']] = $db->escape_string($mybb->input[$xtpffield['field']]);
+		$fields[$xtpffield['field']] = $db->escape_string($mybb->input[$xtpffield['field']]);
+	}
+}
+
+function xt_proffields_form_badwords(&$row)
+{
+	if($row['row_options']['id'] == 'row_parser_options')
+	{
+		global $lang, $form, $mybb;
+		$lang->load('xt_proffields');
+
+		foreach(xt_proffields_insfields() as $desc){
+			switch ($desc['inp']){
+				case 'yn':
+					$row['content'] .= '<br />'.$form->generate_check_box($desc['field'], 1, $lang->{$desc['field']}, array('checked' => $mybb->input[$desc['field']], 'id' => $desc['field']));
+				break;
+			}
 		}
 	}
 }
@@ -219,12 +233,8 @@ function xt_proffields_form(){
 		global $mybb, $form;
 		$lang->load('xt_proffields');
 		foreach(xt_proffields_insfields() as $desc){
-			//$form_container->output_row($lang->title." <em>*</em>", "", $form->generate_text_box('title', $mybb->input['title'], array('id' => 'title')), 'title');
 			$desc_desc = $desc['field'].'_desc';
 			switch ($desc['inp']){
-				case 'yn':
-					$form_container->output_row($lang->{$desc['field']},$lang->$desc_desc,$form->generate_yes_no_radio($desc['field'],$mybb->input[$desc['field']],true,array('id'=>$desc['field'].'_yes','class'=>$desc['field']),array('id'=>$desc['field'].'_no','class'=>$desc['field'])),'row_'.$desc['field'],array(),array('id'=>'row_'.$desc['field']));
-				break;
 				case 'text':
 					$form_container->output_row($lang->{$desc['field']},$lang->$desc_desc,$form->generate_text_box($desc['field'],$mybb->input[$desc['field']],array('id'=>$desc['field'])),$desc['field'],array(),array('id'=>'row_'.$desc['field']));
 				break;
@@ -239,7 +249,6 @@ function xt_proffields_form(){
 		}
 		echo '<script type="text/javascript">
 			Event.observe(window, "load", function() {
-				new Peeker($("fieldtype"),$("row_xt_proffields_badwords"),/text/,false);
 				new Peeker($("fieldtype"),$("row_xt_proffields_fml"),/^(checkbox|radio|select)$/,false);
 			});
 		</script>';
