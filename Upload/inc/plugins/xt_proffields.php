@@ -215,7 +215,7 @@ function xt_proffields_form_badwords(&$row)
 	if($row['row_options']['id'] == 'row_parser_options')
 	{
 		global $lang, $form, $mybb;
-		$lang->load('xt_proffields');
+		$lang->load('xt_proffields', true);
 
 		foreach(xt_proffields_insfields() as $desc){
 			switch ($desc['inp']){
@@ -231,7 +231,7 @@ function xt_proffields_form(){
 	global $form_container, $lang;
 	if($form_container->_title == $lang->add_new_profile_field || $form_container->_title == $lang->edit_profile_field){
 		global $mybb, $form;
-		$lang->load('xt_proffields');
+		$lang->load('xt_proffields', true);
 		foreach(xt_proffields_insfields() as $desc){
 			$desc_desc = $desc['field'].'_desc';
 			switch ($desc['inp']){
@@ -420,7 +420,7 @@ function xt_proffields_regstart(){
 			}
 		}
 		if($xt_proffields_reg_fields_field){
-			if(!$lang->xt_proffields_no_req) $lang->load('xt_proffields');
+			if(!$lang->xt_proffields_no_req) $lang->load('xt_proffields', true);
 			eval('$xt_proffields_reg_fields = "'.$templates->get('xtproffields_reg_fields').'";');
 		}
 	}
@@ -432,7 +432,7 @@ function xt_proffields_regend(){
 	if(!$xtpfc) $xtpfc = $GLOBALS['cache']->read('profilefields');
 	if($xtpfc){
 		global $lang;
-		if(!$lang->xt_proffields_error_js) $lang->load('xt_proffields');
+		if(!$lang->xt_proffields_error_js) $lang->load('xt_proffields', true);
 		$xt_proffields_validator = '';
 		foreach($xtpfc as $uf => $ufid){
 			if($ufid['required'] && $ufid['regex']){
