@@ -616,7 +616,7 @@ function xt_proffields_inp(&$pa,&$user,&$errors,&$vars=array()){
 				$vars['VALUE$'] = array();
 				foreach($expoptions as $key => $val){
 					$checked = $value = $fieldkey = '';
-					if($pa['xt_proffields_fml'][$val]){
+					if(isset($pa['xt_proffields_fml'][$val]) && !empty($pa['xt_proffields_fml'][$val])){
 						$templates->cache['tmp_profilefield_'.$pa['fid']] = $pa['xt_proffields_fml'][$val];
 						eval('$value = "'.$templates->get('tmp_profilefield_'.$pa['fid'], 1, 0).'";');
 					}else{
@@ -705,7 +705,7 @@ function xt_proffields_disp(&$pa,&$v){
 					$vars['VALUE'] = $comma = '';
 					foreach($values as $key => $val){
 						$value = '';
-						if($pa['xt_proffields_fml'][$val]){
+						if(!empty($pa['xt_proffields_fml'][$val])){
 							$templates->cache['tmp_profilefield_'.$pa['fid']] = $pa['xt_proffields_fml'][$val];
 							eval('$value = "'.$templates->get('tmp_profilefield_'.$pa['fid'], 1, 0).'";');
 						}else{
