@@ -76,6 +76,9 @@ function xt_proffields_activate(){
 <label class="smalltext" for="{$field}_{$fieldkey}">{$value}</label><br />',
 'usercp_profile_profilefields_checkbox'	=> '<input type="checkbox" class="checkbox" name="profile_fields[{$field}][]" value="{$val}" id="{$field}_{$fieldkey}"{$checked}/>
 <label class="smalltext" for="{$field}_{$fieldkey}">{$value}</label><br />',
+		'usercp_profile_profilefields_select'	=> '<select{$field_id} name="profile_fields[{$field}]{$multiple_array}" size="{$pa[\'length\']}" {$multiple}>
+	{$select}
+</select>',
 	));
 
 	$PL->settings_delete('xt_proffields');
@@ -556,7 +559,9 @@ function xt_proffields_inp(&$pa,&$user,&$errors,&$vars=array()){
 					$select .= '<option value="'.$val.'"'.$sel.'>'.$val.'</option>'."\n";
 				}
 				if(!$pa['length']) $pa['length'] = 3;
-				$vars['INPUT'] = $code = '<select'.$field_id.' name="profile_fields['.$field.'][]" size="'.$pa['length'].'" multiple="multiple">'.$select.'</select>';
+				$multiple = ' multiple="multiple"';
+				$multiple_array = '[]';
+				$vars['INPUT'] = $code = eval($templates->render('xtproffields_usercp_profile_profilefields_select'));
 			}
 		break;
 		case 'select';
@@ -576,7 +581,9 @@ function xt_proffields_inp(&$pa,&$user,&$errors,&$vars=array()){
 					$select .= '<option value="'.$val.'"'.$sel.'>'.$value.'</option>';
 				}
 				if(!$pa['length']) $pa['length'] = 1;
-				$vars['INPUT'] = $code = '<select'.$field_id.' name="profile_fields['.$field.']" size="'.$pa['length'].'">'.$select.'</select>';
+				$multiple = '';
+				$multiple_array = '';
+				$vars['INPUT'] = $code = eval($templates->render('xtproffields_usercp_profile_profilefields_select'));
 			}
 		break;
 		case 'radio';
